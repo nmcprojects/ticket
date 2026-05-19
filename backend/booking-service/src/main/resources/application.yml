@@ -1,0 +1,106 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: booking-service
+  datasource:
+    url: ${BOOKING_DB_URL:jdbc:postgresql://localhost:5432/booking_db}
+    username: ${DB_USER:tickethub}
+    password: ${DB_PASSWORD:tickethub}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: booking-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: com.tickethub.booking.kafka.IncomingPaymentMessage
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+eureka:
+  client:
+    service-url:
+      # defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+tickethub:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  services:
+    event-url: ${EVENT_SERVICE_URL:http://localhost:8081}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+    ticket-url: ${TICKET_SERVICE_URL:http://localhost:8082}
+  kafka:
+    topic:
+      payment-events: payment-events
+      booking-events: booking-events
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:-},%X{traceId:-},%X{spanId:-}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,circuitbreakers,retries
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+  metrics:
+    distribution:
+      percentiles-histogram:
+        resilience4j.circuitbreaker.calls: true
+
+# Circuit breaker + retry cho các lệnh gọi liên service.
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50          # mở mạch khi >=50% lệnh gọi lỗi
+        waitDurationInOpenState: 10s      # mở 10s rồi thử half-open
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      event:
+        baseConfig: default
+      payment:
+        baseConfig: default
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 300ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+    instances:
+      event:
+        baseConfig: default
+      payment:
+        baseConfig: default
