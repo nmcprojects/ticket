@@ -1,0 +1,283 @@
+# Full TicketHub stack: infrastructure + all 8 microservices + frontend.
+#
+#   docker compose up -d --build       # build & run everything
+#   docker compose up -d postgres kafka   # infra only (then run services via mvn)
+#
+# First build downloads Maven/npm deps (a BuildKit cache mount keeps it fast on rebuilds).
+# Postgres is published on 5433 to avoid clashing with a native Postgres on 5432.
+services:
+  # ── Infrastructure ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tickethub-postgres
+    environment:
+      POSTGRES_USER: tickethub
+      POSTGRES_PASSWORD: tickethub
+      POSTGRES_DB: tickethub
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickethub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: tickethub-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9094,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9094,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: tickethub-kafka-ui
+    depends_on: [kafka]
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: tickethub
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9094
+      DYNAMIC_CONFIG_ENABLED: "true"
+
+  # ── Service discovery & gateway ─────────────────────────────
+  eureka-server:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: eureka-server } }
+    container_name: tickethub-eureka
+    ports: ["8761:8761"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  api-gateway:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: api-gateway } }
+    container_name: tickethub-gateway
+    depends_on:
+      eureka-server: { condition: service_healthy }
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: tickethub-super-secret-key-change-me-please-0123456789
+    ports: ["8080:8080"]
+
+  # ── Business services ───────────────────────────────────────
+  auth-service:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: auth-service } }
+    container_name: tickethub-auth
+    depends_on:
+      postgres: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+    environment:
+      AUTH_DB_URL: jdbc:postgresql://postgres:5432/auth_db
+      DB_USER: tickethub
+      DB_PASSWORD: tickethub
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: tickethub-super-secret-key-change-me-please-0123456789
+    # Not published to the host — only reachable via the gateway / docker network.
+    expose: ["8083"]
+
+  event-service:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: event-service } }
+    container_name: tickethub-event
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+    environment:
+      EVENT_DB_URL: jdbc:postgresql://postgres:5432/event_db
+      DB_USER: tickethub
+      DB_PASSWORD: tickethub
+      KAFKA_BOOTSTRAP: kafka:9094
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      AUTH_SERVICE_URL: http://auth-service:8083
+    expose: ["8081"]
+
+  payment-service:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: payment-service } }
+    container_name: tickethub-payment
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+    environment:
+      PAYMENT_DB_URL: jdbc:postgresql://postgres:5432/payment_db
+      DB_USER: tickethub
+      DB_PASSWORD: tickethub
+      KAFKA_BOOTSTRAP: kafka:9094
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      FRONTEND_URL: http://localhost:5173
+      # 'sandbox' (mặc định) | 'payos' (bật bằng: PAYMENT_PROVIDER=payos docker compose up)
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-sandbox}
+    expose: ["8084"]
+
+  booking-service:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: booking-service } }
+    container_name: tickethub-booking
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+      event-service: { condition: service_started }
+      payment-service: { condition: service_started }
+    environment:
+      BOOKING_DB_URL: jdbc:postgresql://postgres:5432/booking_db
+      DB_USER: tickethub
+      DB_PASSWORD: tickethub
+      KAFKA_BOOTSTRAP: kafka:9094
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      FRONTEND_URL: http://localhost:5173
+      EVENT_SERVICE_URL: http://event-service:8081
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+      TICKET_SERVICE_URL: http://ticket-service:8082
+    expose: ["8085"]
+
+  ticket-service:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: ticket-service } }
+    container_name: tickethub-ticket
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+    environment:
+      TICKET_DB_URL: jdbc:postgresql://postgres:5432/ticket_db
+      DB_USER: tickethub
+      DB_PASSWORD: tickethub
+      KAFKA_BOOTSTRAP: kafka:9094
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      EVENT_SERVICE_URL: http://event-service:8081
+    expose: ["8082"]
+
+  notification-service:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: notification-service } }
+    container_name: tickethub-notification
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+    environment:
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/notification_db
+      DB_USER: tickethub
+      DB_PASSWORD: tickethub
+      KAFKA_BOOTSTRAP: kafka:9094
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+    expose: ["8086"]
+
+  # ── Frontend (nginx) ────────────────────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+    container_name: tickethub-frontend
+    depends_on: [api-gateway]
+    environment:
+      # Server-side rendering reaches the gateway over the compose network.
+      API_BASE_URL_INTERNAL: http://api-gateway:8080
+    ports:
+      - "5173:3000"
+
+  # ── Observability: tracing + metrics + logs + dashboards ─────
+  # Distributed tracing — services gửi span tới đây qua ZIPKIN_ENDPOINT.
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: tickethub-zipkin
+    ports:
+      - "9411:9411"
+
+  # Metrics — scrape /actuator/prometheus của từng service.
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: tickethub-prometheus
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  # Centralized logging — lưu trữ log tập trung.
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: tickethub-loki
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+
+  # Promtail — thu log của tất cả container qua Docker SD, đẩy vào Loki.
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: tickethub-promtail
+    depends_on: [loki]
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+
+  # Dashboard giám sát — Prometheus + Loki + Zipkin đã được provision sẵn.
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: tickethub-grafana
+    depends_on: [prometheus, loki]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  grafana-data:
