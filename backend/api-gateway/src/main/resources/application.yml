@@ -41,18 +41,38 @@ spring:
           uri: lb://event-service
           predicates:
             - Path=/api/events/**, /api/ticket-types/**, /api/organizers/**, /api/uploads/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: eventCircuitBreaker
+                fallbackUri: forward:/fallback/event
         - id: booking-service
           uri: lb://booking-service
           predicates:
             - Path=/api/bookings/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: bookingCircuitBreaker
+                fallbackUri: forward:/fallback/booking
         - id: payment-service
           uri: lb://payment-service
           predicates:
             - Path=/api/payments/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: paymentCircuitBreaker
+                fallbackUri: forward:/fallback/payment
         - id: ticket-service
           uri: lb://ticket-service
           predicates:
             - Path=/api/tickets/**, /api/checkins/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: ticketCircuitBreaker
+                fallbackUri: forward:/fallback/ticket
         - id: notification-service
           uri: lb://notification-service
           predicates:
@@ -78,10 +98,39 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway,prometheus,metrics
+        include: health,info,gateway,prometheus,metrics,circuitbreakers
+  health:
+    circuitbreakers:
+      enabled: true
   tracing:
     sampling:
       probability: 1.0
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+
+# Cấu hình Resilience4j Circuit Breaker
+resilience4j:
+  circuitbreaker:
+    instances:
+      bookingCircuitBreaker:
+        sliding-window-size: 10
+        failure-rate-threshold: 50        # Mở circuit khi 50% request lỗi
+        wait-duration-in-open-state: 10s  # Chờ 10s trước khi thử lại
+        permitted-calls-in-half-open-state: 3
+      paymentCircuitBreaker:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-calls-in-half-open-state: 3
+      ticketCircuitBreaker:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-calls-in-half-open-state: 3
+      eventCircuitBreaker:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-calls-in-half-open-state: 3
