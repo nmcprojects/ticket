@@ -158,10 +158,9 @@ This reduces gate congestion: authenticity is verified locally; the DB is only t
 | POST | `/api/tickets/issue` | ADMIN/ORGANIZER/STAFF | Bulk issue tickets |
 | PUT | `/api/tickets/{id}` | ADMIN/ORGANIZER/STAFF | Update ticket |
 | DELETE | `/api/tickets/{id}` | ADMIN/ORGANIZER/STAFF | Delete ticket |
-| POST | `/api/tickets/check-in` | ADMIN/ORGANIZER/STAFF | Check in by ticket code |
 | POST | `/api/tickets/void` | INTERNAL/ADMIN/ORGANIZER/STAFF | Void all tickets for a booking |
 | GET | `/api/checkins` | ADMIN/ORGANIZER/STAFF | Check-in logs |
-| POST | `/api/checkins` | ADMIN/ORGANIZER/STAFF | Alias for check-in |
+| POST | `/api/checkins` | ADMIN/ORGANIZER/STAFF | Check in by ticket code |
 
 ---
 

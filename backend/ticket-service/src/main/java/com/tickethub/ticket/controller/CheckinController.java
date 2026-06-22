@@ -27,7 +27,7 @@ public class CheckinController {
     private final TicketService service;
     private final EventClient eventClient;
 
-    /** Perform a check-in (alias of POST /api/tickets/check-in). */
+    /** Perform a check-in by ticket code or QR payload. */
     @PostMapping
     public CheckinResponse checkIn(@Valid @RequestBody CheckinRequest req) {
         return service.checkIn(req);

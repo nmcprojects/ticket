@@ -122,7 +122,6 @@ chuyển trạng thái).
 | POST | `/api/tickets/issue` | Phát hành vé (dùng nội bộ khi nhận BookingPaid) |
 | PUT | `/api/tickets/{id}` | Cập nhật vé |
 | DELETE | `/api/tickets/{id}` | Xóa vé |
-| POST | `/api/tickets/check-in` | Check-in một vé |
 | POST | `/api/tickets/void` | Hủy toàn bộ vé của một booking |
 
 ### Check-in — `/api/checkins`
