@@ -3,7 +3,12 @@ package com.tickethub.ticket.controller;
 import com.tickethub.common.security.CurrentUser;
 import com.tickethub.common.security.RequireRole;
 import com.tickethub.ticket.client.EventClient;
-import com.tickethub.ticket.dto.*;
+import com.tickethub.ticket.dto.IssueRequest;
+import com.tickethub.ticket.dto.TicketDto;
+import com.tickethub.ticket.dto.TicketRequest;
+import com.tickethub.ticket.dto.TicketStatsDto;
+import com.tickethub.ticket.dto.VoidBookingRequest;
+import com.tickethub.ticket.dto.VoidResult;
 import com.tickethub.ticket.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -97,12 +102,6 @@ public class TicketController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/check-in")
-    @RequireRole({"ADMIN", "ORGANIZER", "STAFF"})
-    public CheckinResponse checkIn(@Valid @RequestBody CheckinRequest req) {
-        return service.checkIn(req);
     }
 
     /** Internal compensation call (booking-service) or staff/admin. */

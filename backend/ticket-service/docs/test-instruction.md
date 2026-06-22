@@ -127,7 +127,7 @@ Take a `ticketCode` from step 6:
 
 ```bash
 # Replace TICKET-XXXX-XXXX with actual code
-curl -s -X POST http://localhost:8080/api/tickets/check-in \
+curl -s -X POST http://localhost:8080/api/checkins \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"ticketCode":"TICKET-XXXX-XXXX","eventId":1}' | jq
