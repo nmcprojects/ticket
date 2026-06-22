@@ -1,0 +1,67 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5432/notification_db}
+    username: ${DB_USER:tickethub}
+    password: ${DB_PASSWORD:tickethub}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: com.tickethub.common.events.TicketsIssuedEventMessage
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.tickethub.common.events
+  # SMTP (Gmail). Emails are sent for real when tickethub.mail.enabled=true.
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:techtok.support@gmail.com}
+    password: ${MAIL_PASSWORD:lacxgjfytlheyvbk}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+eureka:
+  client:
+    service-url:
+      # defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+tickethub:
+  kafka:
+    topic:
+      ticket-issued-events: ticket-issued-events
+      booking-events: booking-events
+      payment-events: payment-events
+  mail:
+    enabled: ${MAIL_ENABLED:true}
+    from: ${MAIL_FROM:techtok.support@gmail.com}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
