@@ -1,0 +1,54 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /tmp/loki
+  storage:
+    filesystem:
+      chunks_directory: /tmp/loki/chunks
+      rules_directory: /tmp/loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# Retention: keep logs for 7 days (demo-friendly; raise for production)
+table_manager:
+  retention_deletes_enabled: true
+  retention_period: 168h
+
+ruler:
+  alertmanager_url: http://localhost:9093
+
+# By default, Loki will send anonymous usage data. Set to false to disable.
+analytics:
+  reporting_enabled: false
+
+# Disable structured metadata to avoid schema issues with older configs
+limits_config:
+  allow_structured_metadata: false
+  # Increase ingestion limits for local dev (backlog after downtime)
+  ingestion_rate_mb: 64
+  ingestion_burst_size_mb: 128
+  max_entries_limit_per_query: 10000

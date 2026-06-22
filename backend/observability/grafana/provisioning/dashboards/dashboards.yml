@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: TicketHub
+    orgId: 1
+    folder: TicketHub
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
