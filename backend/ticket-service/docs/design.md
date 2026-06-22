@@ -98,6 +98,17 @@ This design handles concurrent scans of the same QR code safely without distribu
 - Enables **offline verification**: a mobile check-in app can verify authenticity without internet (only needs the secret)
 - Uses constant-time comparison to prevent timing attacks
 
+### Offline QR Verification
+
+A mobile check-in app (or any verifier) can validate a QR code without network access:
+
+1. **Parse** the scanned payload: `base64(ticketCode):base64(signature)`
+2. **Recompute** the HMAC-SHA256 signature of the ticket code using the shared secret
+3. **Compare** signatures with constant-time equality
+4. If valid, the ticket code is authentic. The app may then perform an online call to mark it as used (check-in).
+
+This reduces gate congestion: authenticity is verified locally; the DB is only touched to prevent double entry.
+
 ---
 
 ## Kafka Integration
@@ -122,6 +133,17 @@ This design handles concurrent scans of the same QR code safely without distribu
 - **Message type:** `TicketsIssuedEventMessage`
 - **Key:** `bookingId` (ensures ordering per booking)
 - **Delivery:** Guaranteed after local DB transaction commit
+
+### Consumer: `EventEventsConsumer`
+
+- **Topic:** `event-events`
+- **Group ID:** `ticket-service`
+- **Message type:** `EventEventMessage`
+- **Purpose:** Maintains a local `EventSnapshot` cache so ticket issuance does not need to call `event-service` for event titles.
+
+**Processing flow:**
+1. On `EventCreated` / `EventUpdated` → upsert `EventSnapshot` (id, title, status)
+2. On `EventDeleted` → remove the snapshot from local DB
 
 ---
 
@@ -192,9 +214,23 @@ CREATE TABLE processed_events (
 CREATE TABLE event_snapshots (
   id BIGINT PRIMARY KEY,
   title VARCHAR(500),
+  status VARCHAR(50),
   updated_at TIMESTAMP
 );
 ```
+
+---
+
+## Error Handling
+
+Global exception handling is provided by `GlobalExceptionHandler` (`@RestControllerAdvice`).
+
+| Exception | HTTP Status | Response Body |
+|-----------|-------------|---------------|
+| `NotFoundException` | 404 | `{"status":404,"error":"Not Found","message":"..."}` |
+| `IllegalStateException` | 409 | `{"status":409,"error":"Conflict","message":"..."}` |
+| `IllegalArgumentException` | 400 | `{"status":400,"error":"Bad Request","message":"..."}` |
+| `MethodArgumentNotValidException` | 400 | `{"error":{...},"fields":{"field":"message"}}` |
 
 ---
 
@@ -205,6 +241,15 @@ CREATE TABLE event_snapshots (
 - **Per-event authorization** for organizers: checks if the caller manages the event via `event-service` internal API
 - **QR tamper-proofing** via HMAC signature
 - **Concurrent check-in safety** via atomic database update
+
+---
+
+## Observability
+
+- **Logs:** Structured JSON logging via `logstash-logback-encoder` (includes `traceId` and `spanId` from MDC)
+- **Metrics:** Spring Boot Actuator + Micrometer → Prometheus (`/actuator/prometheus`)
+- **Tracing:** Distributed traces via Micrometer Tracing + Zipkin
+- **Audit:** All check-in attempts persisted in `checkin_logs`
 
 ---
 
@@ -227,3 +272,22 @@ Key properties in `application.yml`:
 - **Kafka at-least-once:** Consumer may receive duplicates; idempotency key prevents double issuance.
 - **Transaction outbox pattern:** `TicketEventPublisher` only sends Kafka message after the DB transaction commits.
 - **Saga compensation:** `voidByBooking()` cancels all tickets for a refunded booking.
+
+---
+
+## Testing
+
+Integration tests use **Testcontainers** with a real PostgreSQL instance. Kafka is excluded from the Spring Boot test context and the `TicketEventPublisher` is mocked, so tests drive the consumer directly.
+
+| Test Class | Coverage |
+|------------|----------|
+| `TicketIssuanceIntegrationTest` | BookingPaid → ticket issuance, idempotency, query filters, stats, check-in (including concurrent race), already-checked-in rejection |
+| `QrSignerTest` | HMAC sign/verify round-trip, tamper detection, constant-time comparison |
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-06-22 | Added `EventEventsConsumer`, offline QR section, error handling, observability, testing |
