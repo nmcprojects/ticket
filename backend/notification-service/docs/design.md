@@ -233,6 +233,21 @@ For local testing, **LOG mode** is often sufficient: set `tickethub.mail.enabled
 
 ---
 
+## Testing
+
+| Test Class | Type | Coverage |
+|-----------|------|----------|
+| `NotificationServiceTest` | Pure Mockito (unit) | Email rendered correctly, SMTP sent when enabled, LOG fallback when disabled, idempotent skip on duplicate |
+| `NotificationServicePersistenceTest` | Testcontainers Postgres | Real JPA repository writes dedup correctly, no duplicate rows on retry, status transitions (`PENDING` → `SENT`) |
+
+### Test Strategy
+
+- **Unit tests** mock `JavaMailSender` and `EmailNotificationRepository` — no SMTP connection, no Docker, no Kafka.
+- **Persistence tests** spin up `postgres:16-alpine` via Testcontainers and exercise the real repository layer while keeping the mail sender mocked.
+- **Kafka and Eureka are excluded** from all test contexts.
+
+---
+
 ## Observability
 
 - **Logs:** Every notification event is logged with its dedup key and recipient
