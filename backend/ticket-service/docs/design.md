@@ -283,11 +283,3 @@ Integration tests use **Testcontainers** with a real PostgreSQL instance. Kafka 
 |------------|----------|
 | `TicketIssuanceIntegrationTest` | BookingPaid → ticket issuance, idempotency, query filters, stats, check-in (including concurrent race), already-checked-in rejection |
 | `QrSignerTest` | HMAC sign/verify round-trip, tamper detection, constant-time comparison |
-
----
-
-## Change Log
-
-| Date | Change |
-|------|--------|
-| 2026-06-22 | Added `EventEventsConsumer`, offline QR section, error handling, observability, testing |
