@@ -1,0 +1,33 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+  security:
+    user:
+      name: ${EUREKA_USER:admin}
+      password: ${EUREKA_PASSWORD:admin}
+      
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    # A standalone registry does not register with itself
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      # defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

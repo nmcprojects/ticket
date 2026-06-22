@@ -1,0 +1,31 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: eureka-server-test
+
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    # Keep the client auto-config ON (it supplies ApplicationInfoManager that the
+    # Eureka server needs) but never register with or fetch from any registry.
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:0/eureka/
+  server:
+    # Disable self-preservation noise in tests
+    enable-self-preservation: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    enabled: false
+  zipkin:
+    tracing:
+      endpoint: ""

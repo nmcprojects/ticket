@@ -1,0 +1,87 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      # Both the gateway and the downstream services set CORS headers; drop the
+      # duplicates so the browser doesn't reject the response.
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      # Global CORS so the Vite frontend (5173) can call the gateway
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              # Frontend (Vite dev + preview)
+              - "http://localhost:5173"
+              - "http://localhost:4173"
+              # Microservices (nội bộ / Swagger UI)
+              - "http://localhost:8081"   # event-service
+              - "http://localhost:8082"   # ticket-service
+              - "http://localhost:8083"   # auth-service
+              - "http://localhost:8084"   # payment-service
+              - "http://localhost:8085"   # booking-service
+              - "http://localhost:8086"   # notification-service
+              - "http://localhost:3000"   # Grafana
+            allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+        - id: event-service
+          uri: lb://event-service
+          predicates:
+            - Path=/api/events/**, /api/ticket-types/**, /api/organizers/**, /api/uploads/**
+        - id: booking-service
+          uri: lb://booking-service
+          predicates:
+            - Path=/api/bookings/**
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+        - id: ticket-service
+          uri: lb://ticket-service
+          predicates:
+            - Path=/api/tickets/**, /api/checkins/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+
+eureka:
+  client:
+    service-url:
+      # defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+
+tickethub:
+  jwt:
+    # PUBLIC key only — matches auth-service's RS256 keypair. The gateway can verify tokens but
+    # cannot mint them. MUST equal auth-service's tickethub.jwt.public-key.
+    public-key: "${JWT_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoRGWhHWScg/Wc2rQEI3vJrrGu0jk5lUBWp2ZcO/fC28DztLRLmPAevWiQ6IbPwiGAezi21hMFRh0yWTDM4/UW1lA8MNNfy6msrpiOP8vO5fr8rdWQw2BsxLRcfpAehLPvCbZxuFJmFMGijcYJtymF9feeBT5tH4I+OWNAdkXWz277BG54s3HouFhKNgJtpDiT5oDM3mhXLGmoE6R1xMKFSm5NtGx8v3bsSFbxPLKdAx7VQeicdJRjQrUKiopFWZ/3Rway+bnyd9zNYaZWLxktFpYqni2yBxvUyLEoz8oVkCelDvvFaqB2jxuocgDTiCJJDsfmjD1WojCMMblF5PXFQIDAQAB}"
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:-},%X{traceId:-},%X{spanId:-}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

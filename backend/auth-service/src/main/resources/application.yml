@@ -1,0 +1,48 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/auth_db}
+    username: ${DB_USER:tickethub}
+    password: ${DB_PASSWORD:tickethub}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: false
+
+eureka:
+  client:
+    service-url:
+      # defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+tickethub:
+  jwt:
+    # RS256 keypair. auth-service signs with the private key; all other services verify with the
+    # public key only (so they can validate tokens but cannot mint them). Override in production.
+    private-key: "${JWT_PRIVATE_KEY:MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQChEZaEdZJyD9ZzatAQje8musa7SOTmVQFanZlw798LbwPO0tEuY8B69aJDohs/CIYB7OLbWEwVGHTJZMMzj9RbWUDww01/LqayumI4/y87l+vyt1ZDDYGzEtFx+kB6Es+8JtnG4UmYUwaKNxgm3KYX1954FPm0fgj45Y0B2RdbPbvsEbnizcei4WEo2Am2kOJPmgMzeaFcsaagTpHXEwoVKbk20bHy/duxIVvE8sp0DHtVB6Jx0lGNCtQqKikVZn/dHBrL5ufJ33M1hplYvGS0WliqeLbIHG9TIsSjPyhWQJ6UO+8VqoHaPG6hyANOIIkkOx+aMPVaiMIwxuUXk9cVAgMBAAECggEABKCXhtER45dmfWsq9K7L/6+lMfagJnXeuhaFzmOcMGnm3bRBlwGXcAp9uByAh+KozVL1TLPp5T+n0ayRZxPRizMY1VHnEg/qPhkL5VmypuJwc69zGcemwdkSjbtQyuQ4Qs5WIPHFkxi5IWAzBqEw+Sv8ejRJqdCZ7vyfsApNzEZoDRGvYwcugfp9noa92EgvbIerTJ88VbH66z9KFqKz86tL50RU2RJhvyBKU3fevBazH0S/oBLaGY4SaLd+dzk7wLGH9U3RhDKNDOeh/A95rym4LllEw94yMGLSQSf/Uf/bwO/Ijma5h0kdT1ub0bQnoIFPVoj9DTUBRgOYED5/6QKBgQDc2bYde++1rc36s2BVv17Zq4p9GDh9ujr/lP7/912a0ojYf/itAmPFhc090UVHvCAOqe9v4heKLtGyNidrsu5QhE6fmjkRWdWKFzwWgv/nxAwX+2XJ6DaM9nHOk3GeduKDCNlbVU70zzWtN82JqVgwrBRXNE7ZtDwINcZGrz+/jwKBgQC6tCQS+jvJrqwCvOIWiftqKx5JNS3BjpHDNoUtUoVipXF0u9HFK6mHsAct64wkzC2UKF2VKYaZFW4OYBdM7GGy+TuwiwNU1MEiWmeYk7q6XRtFu4yL6TsL8YUlmV4yotZyBUZrURIVY9yiIa6NzlZ+4rtH5wIW5C883EO4zqmtGwKBgCelebj/R8AQrHqF+xRJn4hp8BmW4IVJik/ZepGO4aHqi6B6ELVWSXzrETY4vDwtfH/FZ/No3hrzXrekWx1NaNTRe5/ROs9vlhMNKr9L0w7TNeyUN+iwJCLYFwQjmfD9nJozW3m27c6q6BLpgp9k5C0QpzIkdMdGQMSkiqyjx0jnAoGAfAJu+5Pt5lX4tpDS8vmPXsNpCGMkEy4pLyqlZqcrJYySQWEHQhlwL0oCWsPbgA2GMKRnFE5SspeDVFUK5PMVKZVVyjtraQsvhSvbJ4LoQiTZmoWqIrw1lgdD0ud9o9B4858BWQKuKjr8L0yD7nihBwJ+NpH/10iU/62l5biPBwUCgYEAgy0C+dNpvgr3i1WuCG+3PQXpsEEjJh1cXUVQ17hfrbL0zn6HW+SxX+j2GqjsmUsewxlyyMjUjfYJr/X9wGdOCC8eAhdHrn3uXizmG+B5yKP0JoHOCcIzVW0DLI69BIu1BHdzRiL5KSQGank2PH/TSlNSfWRDcxkIjj5AuxJFYLQ=}"
+    public-key: "${JWT_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoRGWhHWScg/Wc2rQEI3vJrrGu0jk5lUBWp2ZcO/fC28DztLRLmPAevWiQ6IbPwiGAezi21hMFRh0yWTDM4/UW1lA8MNNfy6msrpiOP8vO5fr8rdWQw2BsxLRcfpAehLPvCbZxuFJmFMGijcYJtymF9feeBT5tH4I+OWNAdkXWz277BG54s3HouFhKNgJtpDiT5oDM3mhXLGmoE6R1xMKFSm5NtGx8v3bsSFbxPLKdAx7VQeicdJRjQrUKiopFWZ/3Rway+bnyd9zNYaZWLxktFpYqni2yBxvUyLEoz8oVkCelDvvFaqB2jxuocgDTiCJJDsfmjD1WojCMMblF5PXFQIDAQAB}"
+    access-token-minutes: 60
+    refresh-token-days: 7
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:-},%X{traceId:-},%X{spanId:-}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

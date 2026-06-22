@@ -1,0 +1,8 @@
+**/target/
+**/*.log
+*.log
+.git/
+.idea/
+**/*.iml
+.vscode/
+build*.log

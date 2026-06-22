@@ -1,0 +1,70 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: event-service
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 8MB
+  datasource:
+    url: ${EVENT_DB_URL:jdbc:postgresql://localhost:5432/event_db}
+    username: ${DB_USER:tickethub}
+    password: ${DB_PASSWORD:tickethub}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+eureka:
+  client:
+    service-url:
+      # defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+app:
+  s3:
+    endpoint: ${S3_ENDPOINT:https://b1445009d341ef24c8b182c044a8f17e.r2.cloudflarestorage.com}
+    region: ${S3_REGION:auto}
+    access-key: ${S3_ACCESS_KEY:3e5e8110cb99400e63141d0160e16fa1}
+    secret-key: ${S3_SECRET_KEY:dc20816fc05133a6d2c86653f6583cb5c8ae42ae67599bca33a29d1cb310bb48}
+    bucket: ${S3_BUCKET:techtok}
+    public-base-url: ${S3_PUBLIC_BASE_URL:https://pub-b024c7339b36480093f1baf32c2f1881.r2.dev}
+    path-style-access: ${S3_PATH_STYLE_ACCESS:true}
+
+tickethub:
+  services:
+    auth-url: ${AUTH_SERVICE_URL:http://localhost:8083}
+  kafka:
+    topic:
+      event-events: event-events
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:-},%X{traceId:-},%X{spanId:-}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

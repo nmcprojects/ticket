@@ -1,0 +1,50 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: api-gateway-test
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        # Public route: forwards to a non-routable host so the request fails
+        # downstream (timeout/503/5xx) but is NOT blocked by the auth gate.
+        - id: public-events
+          uri: http://localhost:1
+          predicates:
+            - Path=/api/events/**
+        # Protected route: the JwtAuthGatewayFilter must reject unauthenticated
+        # requests with 401 before this downstream is ever contacted.
+        - id: protected-bookings
+          uri: http://localhost:1
+          predicates:
+            - Path=/api/bookings/**
+
+# The Docker stack is running on this host; tests must stay isolated from it.
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+tickethub:
+  jwt:
+    public-key: "${JWT_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoRGWhHWScg/Wc2rQEI3vJrrGu0jk5lUBWp2ZcO/fC28DztLRLmPAevWiQ6IbPwiGAezi21hMFRh0yWTDM4/UW1lA8MNNfy6msrpiOP8vO5fr8rdWQw2BsxLRcfpAehLPvCbZxuFJmFMGijcYJtymF9feeBT5tH4I+OWNAdkXWz277BG54s3HouFhKNgJtpDiT5oDM3mhXLGmoE6R1xMKFSm5NtGx8v3bsSFbxPLKdAx7VQeicdJRjQrUKiopFWZ/3Rway+bnyd9zNYaZWLxktFpYqni2yBxvUyLEoz8oVkCelDvvFaqB2jxuocgDTiCJJDsfmjD1WojCMMblF5PXFQIDAQAB}"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  tracing:
+    enabled: false
+  zipkin:
+    tracing:
+      endpoint: ""
