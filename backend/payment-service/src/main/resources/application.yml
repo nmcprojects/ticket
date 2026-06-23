@@ -1,0 +1,60 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/payment_db}
+    username: ${DB_USER:tickethub}
+    password: ${DB_PASSWORD:tickethub}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+eureka:
+  client:
+    service-url:
+      # defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://${EUREKA_USER:admin}:${EUREKA_PASSWORD:admin}@localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+tickethub:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  kafka:
+    topic:
+      payment-events: payment-events
+  payment:
+    # 'sandbox' = cổng thanh toán mô phỏng (mặc định, test không tốn tiền thật).
+    # 'payos'   = PayOS thật — đặt PAYMENT_PROVIDER=payos để bật.
+    provider: ${PAYMENT_PROVIDER:sandbox}
+    payos:
+      client-id: ${PAYOS_CLIENT_ID:your-payos-client-id}
+      api-key: ${PAYOS_API_KEY:your-payos-api-key}
+      checksum-key: ${PAYOS_CHECKSUM_KEY:your-payos-checksum-key}
+      create-url: https://api-merchant.payos.vn/v2/payment-requests
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:-},%X{traceId:-},%X{spanId:-}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
