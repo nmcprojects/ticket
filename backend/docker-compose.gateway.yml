@@ -1,0 +1,12 @@
+
+services:
+  api-gateway-test:
+    build: { context: ., dockerfile: Dockerfile, args: { MODULE: api-gateway } }
+    container_name: tickethub-gateway-test
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      EUREKA_USER: admin
+      EUREKA_PASSWORD: admin
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: tickethub-super-secret-key-change-me-please-0123456789
+    ports: ["8080:8080"]
