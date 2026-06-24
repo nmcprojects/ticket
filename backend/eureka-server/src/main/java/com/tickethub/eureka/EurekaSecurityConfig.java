@@ -12,12 +12,12 @@ public class EurekaSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-            .httpBasic(Customizer.withDefaults())
-            // Eureka client dùng HTTP POST để register — cần tắt CSRF
-            .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/eureka/**")
-            );
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/health").permitAll()
+                .anyRequest().authenticated()
+            )
+            .httpBasic(Customizer.withDefaults());
         return http.build();    
     }
 }
