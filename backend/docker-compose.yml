@@ -68,7 +68,8 @@ services:
     container_name: tickethub-eureka
     ports: ["8761:8761"]
     healthcheck:
-      test: ["CMD", "wget", "--user=admin", "--password=admin", "-qO-", "http://localhost:8761/actuator/health"]
+      # test: ["CMD", "wget", "--user=admin", "--password=admin", "-qO-", "http://localhost:8761/actuator/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 20
