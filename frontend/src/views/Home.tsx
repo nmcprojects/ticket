@@ -117,7 +117,7 @@ export default function Home({ initialEvents }: { initialEvents?: AppEvent[] } =
   const { data, loading, error, refetch } = useAsync(
     () => api.listEvents({ status: "PUBLISHED" }),
     [],
-    initialEvents
+    null
   );
   const events = data ?? [];
   const categories = useMemo(
@@ -153,6 +153,7 @@ export default function Home({ initialEvents }: { initialEvents?: AppEvent[] } =
   return (
     <>
       {/* ════ CINEMATIC BLOCK (dark) ════════════════════════════ */}
+      {loading && <div className="page-wrapper-spinner"><div className="spinner-page"/></div>}
       <div className="relative bg-ink text-canvas">
         {/* film grain over the whole dark block */}
         <div className="grain pointer-events-none absolute inset-0" />
